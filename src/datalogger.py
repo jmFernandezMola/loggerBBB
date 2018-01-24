@@ -27,12 +27,12 @@ def serial_connect():
                 stopbits=serial.STOPBITS_ONE,
                 bytesize=serial.EIGHTBITS
             )
-            print("BBB connected to...", device)
+            print "BBB connected to...", device
             return ser
         except:
             x = 0
     if device == 'end':
-        print("No Device Found")
+        print "No Device Found"
 
 
 def check_data_consistency():
@@ -58,7 +58,7 @@ def check_data_consistency():
     desired_length = len(list_arrays[0])
     for x in range(len(list_arrays)):
         if not len(list_arrays[x]) == desired_length:
-            print("Some of the data received is not complete. Trying to keep as much as possible.")
+            print "Some of the data received is not complete. Trying to keep as much as possible."
             break
         else:
             # Transform the data received into something
@@ -70,7 +70,7 @@ def check_data_consistency():
                     topIndex += 4
                 listValues.append(tempVector)
             else:
-                print("Data received seems to have a not divisible by 4 length")
+                print "Data received seems to have a not divisible by 4 length"
                 return 0
     return 1
 
@@ -81,7 +81,7 @@ timeSinceConnection = time.time()
 
 # If connection stablished...
 if ser:
-    print("Waiting message...")
+    print "Waiting message..." 
     ser.flushInput()
     while True:
         time.sleep(0.5)
@@ -91,19 +91,19 @@ if ser:
         if data.__len__() > 0:
             timeSinceLastMessage = time.time() - t1
             if timeSinceLastMessage > 1.0:
-                print("Some frames received, processing...")
+                print "Some frames received, processing..."
                 dataValidity = check_data_consistency()
                 if dataValidity == 1:
-                    print("Data processed succesfully, trying to save it")
+                    print "Data processed succesfully, trying to save it"
                     break
                 else:
-                    print("Sorry, there was some noise in the bus")
-                    print("Waiting more messages...")
+                    print "Sorry, there was some noise in the bus"
+                    print "Waiting more messages..."
                     data = ""
                     listValues = []
 
 # CSV and Dropbox part
-fileName = "/logger_BBB_" + time.strftime("%Y%m%d_%H%M%S", time.gmtime()) + ".csv"
+fileName = "logger_BBB_" + time.strftime("%Y%m%d_%H%M%S", time.gmtime()) + ".csv"
 dbxPath = "/Datalogger"
 
 with open(fileName, 'wb') as csvfile:
@@ -113,11 +113,11 @@ with open(fileName, 'wb') as csvfile:
     spamwriter.writerow("\n")
     for x in range(len(listValues[0])):
         spamwriter.writerow([elements[x] for elements in listValues])
-    print("Data saved in the device")
+    print "Data saved in the device"
 
 with open(fileName, 'rb') as f:
     dataFile = f.read()
-    print("Trying to push your file in the cloud...")
+    print "Trying to push your file in the cloud..."
 
 with open("passcode.txt", 'r') as code:
     pwd = code.readline()
@@ -125,11 +125,11 @@ with open("passcode.txt", 'r') as code:
     pwd = pwd[:validPwd]
 
 dbx = dropbox.Dropbox(pwd)
-dbxPath += "/" + fileName
 
 try:
+    dbxPath += "/" + fileName
     res = dbx.files_upload(dataFile, dbxPath)
 except dropbox.exceptions.ApiError as err:
-    print('That was too much, check you password file or the internet connection. API error:', err)
-print(dbxPath)
-print('Uploaded as', res.name.encode('utf8'))
+    print 'That was too much, check you password file or the internet connection. API error:', err
+print dbxPath
+print 'Uploaded as', res.name.encode('utf8')
