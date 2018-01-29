@@ -81,24 +81,28 @@ timeSinceConnection = time.time()
 
 # If connection stablished...
 if ser:
-    print "Waiting message..." 
+    print "Waiting message" 
     ser.flushInput()
+    receivingData = 0
     while True:
-        time.sleep(0.5)
+        time.sleep(0.2)
         if ser.inWaiting() > 0:
             data += ser.read(ser.inWaiting())
             t1 = time.time()
+            if receivingData == 0: print "I'm receiving something"
+            receivingData = 1
         if data.__len__() > 0:
             timeSinceLastMessage = time.time() - t1
             if timeSinceLastMessage > 1.0:
                 print "Some frames received, processing..."
+                receivingData = 0
                 dataValidity = check_data_consistency()
                 if dataValidity == 1:
                     print "Data processed succesfully, trying to save it"
                     break
                 else:
                     print "Sorry, there was some noise in the bus"
-                    print "Waiting more messages..."
+                    print "Waiting more messages"
                     data = ""
                     listValues = []
 
