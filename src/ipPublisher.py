@@ -6,10 +6,10 @@ print("Running...")
 lastIP = ""
 
 
-time.sleep(5.0)
+time.sleep(60.0)
 try:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(('google.com', 0))    
+    s.connect(('volt', 0))    
     IP = s.getsockname()[0]
 except:
     IP = "No connection"
@@ -23,7 +23,7 @@ if IP != "No connection" and IP != lastIP:
         f.write(dataFile)
         print("File updated")
 
-    with open("passcode.txt", 'r') as code:
+    with open("/home/txema/loggerBBB/src/passcode.txt", 'r') as code:
         pwd = code.readline()
         validPwd = pwd.find('\n')
         pwd = pwd[:validPwd]
