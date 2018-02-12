@@ -1,14 +1,8 @@
-import serial  # Requereix pyserial
-import time
-import struct
+import serial  # Requires pyserial
+import json
 import csv
-import datetime
-import dropbox  # Requereix dropbox
-
-# Initilaizations
-data = ""
-listValues = []
-setDelimiter = str(bytearray.fromhex('FF FF FF FF FF FF FF FF'))
+import time
+import dropbox
 
 
 def serial_connect():
@@ -34,50 +28,9 @@ def serial_connect():
     if device == 'end':
         print "No Device Found"
 
-
-def check_data_consistency():
-    #  In the following lines the program will search the delimiters
-    # and will split all the data based on those delimiters
-    # print data
-    list_arrays = {}
-    list_index = 0
-    data_shadow_copy = data
-    if not setDelimiter in data_shadow_copy:
-        return 0  # FAIL
-    while setDelimiter in data_shadow_copy:
-        h = data_shadow_copy.find(setDelimiter)
-        data_shadow_copy = data_shadow_copy[h + 8:]  # Destroy all the data until the first delimiter
-        if setDelimiter in data_shadow_copy:
-            list_arrays[list_index] = str(
-                data_shadow_copy[:data_shadow_copy.find(setDelimiter)])  # Keep data in this interval
-        else:
-            list_arrays[list_index] = str(data_shadow_copy)  # Keep data of the last interval
-        list_index += 1
-
-    # Check if all received data has the same size
-    desired_length = len(list_arrays[0])
-    for x in range(len(list_arrays)):
-        if not len(list_arrays[x]) == desired_length:
-            print "Some of the data received is not complete. Trying to keep as much as possible."
-            break
-        else:
-            # Transform the data received into something
-            if desired_length % 4 == 0 and desired_length > 8:
-                tempVector = [str(list_arrays[x][0:8])]
-                topIndex = 12
-                while topIndex <= desired_length:
-                    tempVector.append(int(struct.unpack('l', list_arrays[x][topIndex - 4:topIndex])[0]))
-                    topIndex += 4
-                listValues.append(tempVector)
-            else:
-                print "Data received seems to have a not divisible by 4 length"
-                return 0
-    return 1
-
-
 # Connect!
 ser = serial_connect()
-timeSinceConnection = time.time()
+dspData = ""
 
 # If connection stablished...
 if ser:
@@ -87,24 +40,43 @@ if ser:
     while True:
         time.sleep(0.2)
         if ser.inWaiting() > 0:
-            data += ser.read(ser.inWaiting())
+            dspData += ser.read(ser.inWaiting())
             t1 = time.time()
             if receivingData == 0: print "I'm receiving something"
             receivingData = 1
-        if data.__len__() > 0:
+        if dspData.__len__() > 0:
             timeSinceLastMessage = time.time() - t1
             if timeSinceLastMessage > 1.0:
                 print "Some frames received, processing..."
                 receivingData = 0
-                dataValidity = check_data_consistency()
-                if dataValidity == 1:
+                try:
+                    dspDataParsed = json.loads(dspData)
                     print "Data processed succesfully, trying to save it"
                     break
-                else:
+                except ValueError:
                     print "Sorry, there was some noise in the bus"
                     print "Waiting more messages"
-                    data = ""
-                    listValues = []
+                    dspData = ""
+
+#####
+#Acquire data
+#dspData = '{"Emergency Broadcasting": [{ "Var": "vBus    ","Values": [4.51660156,4.51660156,4.96826171,4.51660156]}, {"Var": "cpu_tim0","Values": [0,4262,4253,4267]}]}' 
+   
+
+#print dspDataParsed.keys()
+emergencyData = dspDataParsed['Emergency Broadcasting']
+
+#create a structure to save data
+listOfVectors = []
+minLengthOfVectors = 1000000000
+for data in emergencyData:
+    tempVector = []
+    tempVector.append(data['Var'])
+    for values in data['Values']:
+        tempVector.append(values)
+    listOfVectors.append(tempVector)
+    if len(tempVector) < minLengthOfVectors:
+        minLengthOfVectors = len(tempVector)
 
 # CSV and Dropbox part
 fileName = "logger_BBB_" + time.strftime("%Y%m%d_%H%M%S", time.gmtime()) + ".csv"
@@ -115,10 +87,12 @@ with open(fileName, 'wb') as csvfile:
     spamwriter.writerow(["Data taken on", time.strftime("%a - %d %b %Y %H:%M:%S", time.gmtime())])
     spamwriter.writerow(["By the Beagle Black Box"])
     spamwriter.writerow("\n")
-    for x in range(len(listValues[0])):
-        spamwriter.writerow([elements[x] for elements in listValues])
+    #Extract rows
+    for x in xrange(minLengthOfVectors):
+        row = [vectors[x] for vectors in listOfVectors]
+        spamwriter.writerow(row)
     print "Data saved in the device"
-
+    
 with open(fileName, 'rb') as f:
     dataFile = f.read()
     print "Trying to push your file in the cloud..."
@@ -135,5 +109,4 @@ try:
     res = dbx.files_upload(dataFile, dbxPath)
 except dropbox.exceptions.ApiError as err:
     print 'That was too much, check you password file or the internet connection. API error:', err
-print dbxPath
-print 'Uploaded as', res.name.encode('utf8')
+print 'Uploaded in: ',dbxPath
