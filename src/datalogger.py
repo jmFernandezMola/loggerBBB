@@ -1,8 +1,9 @@
-import serial  # Requires pyserial
+import serial  # Requires pyserial: sudo pip install pyserial
 import json
 import csv
 import time
-import dropbox
+import dropbox # write: sudo pip install dropbox
+import sys
 
 
 def serial_connect():
@@ -57,6 +58,8 @@ if ser:
                     print "Sorry, there was some noise in the bus"
                     print "Waiting more messages"
                     dspData = ""
+else:
+    sys.exit()
 
 #####
 #Acquire data
