@@ -6,7 +6,7 @@ print("Running...")
 lastIP = ""
 
 
-time.sleep(60.0)
+time.sleep(90.0)
 try:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(('volt', 0))    
@@ -23,7 +23,7 @@ if IP != "No connection" and IP != lastIP:
         f.write(dataFile)
         print("File updated")
 
-    with open("/home/txema/loggerBBB/src/passcode.txt", 'r') as code:
+    with open("/home/circontrol/loggerBBB/src/passcode.txt", 'r') as code:
         pwd = code.readline()
         validPwd = pwd.find('\n')
         pwd = pwd[:validPwd]
