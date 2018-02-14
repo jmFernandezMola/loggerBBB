@@ -39,7 +39,7 @@ if ser:
     ser.flushInput()
     receivingData = 0
     while True:
-        time.sleep(0.2)
+        time.sleep(0.1)
         if ser.inWaiting() > 0:
             dspData += ser.read(ser.inWaiting())
             t1 = time.time()
@@ -66,8 +66,14 @@ else:
 #dspData = '{"Emergency Broadcasting": [{ "Var": "vBus    ","Values": [4.51660156,4.51660156,4.96826171,4.51660156]}, {"Var": "cpu_tim0","Values": [0,4262,4253,4267]}]}' 
    
 
-#print dspDataParsed.keys()
-emergencyData = dspDataParsed['Emergency Broadcasting']
+keyMsg =  dspDataParsed.keys()[0]
+if "Emergency Broadcasting" in keyMsg:
+    print "Is an emergency broadcast"
+else:
+    print keyMsg
+emergencyData = dspDataParsed[keyMsg]
+#else:
+#    sys.exit()
 
 #create a structure to save data
 listOfVectors = []
@@ -89,6 +95,7 @@ with open(fileName, 'wb') as csvfile:
     spamwriter = csv.writer(csvfile, delimiter=';')
     spamwriter.writerow(["Data taken on", time.strftime("%a - %d %b %Y %H:%M:%S", time.gmtime())])
     spamwriter.writerow(["By the Beagle Black Box"])
+    spamwriter.writerow([keyMsg])
     spamwriter.writerow("\n")
     #Extract rows
     for x in xrange(minLengthOfVectors):
