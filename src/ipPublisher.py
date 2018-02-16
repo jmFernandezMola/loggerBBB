@@ -17,11 +17,12 @@ except:
 
 if IP != "No connection" and IP != lastIP:
     lastIP = IP
+    #filePath = "/home/circontrol/loggerBBB/data/"
     fileName = "IP_Sniffer_"+ time.strftime("%Y%m%d_%H%M%S", time.gmtime())+".txt"
-    with open(fileName, 'wb') as f:
-        dataFile = "New IP address detected: " + IP + "\n"
-        f.write(dataFile)
-        print("File updated")
+    #with open(filePath+fileName, 'wb') as f:
+    dataFile = "New IP address detected: " + IP + "\n"
+    #    f.write(dataFile)
+    #    print("File updated")
 
     with open("/home/circontrol/loggerBBB/src/passcode.txt", 'r') as code:
         pwd = code.readline()
@@ -34,6 +35,6 @@ if IP != "No connection" and IP != lastIP:
 
     try:
         res = dbx.files_upload(dataFile, dbxPath)
-        print("The file is in Dropbox")
+    #    print("The file is in Dropbox")
     except dropbox.exceptions.ApiError as err:
         print('That was too much, check you password file or the internet connection. API error:', err)

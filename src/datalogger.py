@@ -31,6 +31,7 @@ def serial_connect():
 
 # Connect!
 ser = serial_connect()
+receivingData = 0
 dspData = ""
 
 # If connection stablished...
@@ -39,7 +40,8 @@ if ser:
     ser.flushInput()
     receivingData = 0
     while True:
-        time.sleep(0.1)
+        if (receivingData == 0):
+            time.sleep(0.05)
         if ser.inWaiting() > 0:
             dspData += ser.read(ser.inWaiting())
             t1 = time.time()
@@ -50,6 +52,7 @@ if ser:
             if timeSinceLastMessage > 1.0:
                 print "Some frames received, processing..."
                 receivingData = 0
+                print dspData
                 try:
                     dspDataParsed = json.loads(dspData)
                     print "Data processed succesfully, trying to save it"
@@ -88,10 +91,11 @@ for data in emergencyData:
         minLengthOfVectors = len(tempVector)
 
 # CSV and Dropbox part
+filePath = "/home/circontrol/loggerBBB/data/"
 fileName = "logger_BBB_" + time.strftime("%Y%m%d_%H%M%S", time.gmtime()) + ".csv"
 dbxPath = "/Datalogger"
 
-with open(fileName, 'wb') as csvfile:
+with open(filePath+fileName, 'wb') as csvfile:
     spamwriter = csv.writer(csvfile, delimiter=';')
     spamwriter.writerow(["Data taken on", time.strftime("%a - %d %b %Y %H:%M:%S", time.gmtime())])
     spamwriter.writerow(["By the Beagle Black Box"])
@@ -103,7 +107,7 @@ with open(fileName, 'wb') as csvfile:
         spamwriter.writerow(row)
     print "Data saved in the device"
     
-with open(fileName, 'rb') as f:
+with open(filePath+fileName, 'rb') as f:
     dataFile = f.read()
     print "Trying to push your file in the cloud..."
 
