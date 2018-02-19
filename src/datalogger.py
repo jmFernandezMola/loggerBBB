@@ -7,13 +7,13 @@ import sys
 
 
 def serial_connect():
-    serlocations = ['/dev/ttyUSB0', '/dev/ttyACM', '/dev/ttyACM0', '/dev/ttyACM1', '/dev/ttyACM2', '/dev/ttyACM3',
+    ser_locations = ['/dev/ttyUSB0', '/dev/ttyACM', '/dev/ttyACM0', '/dev/ttyACM1', '/dev/ttyACM2', '/dev/ttyACM3',
                     '/dev/ttyACM4', '/dev/ttyACM5', '/dev/ttyUSB1', '/dev/ttyUSB2', '/dev/ttyUSB3', '/dev/ttyUSB4',
                     '/dev/ttyUSB5', '/dev/ttyUSB6', '/dev/ttyUSB7', '/dev/ttyUSB8', '/dev/ttyUSB9', '/dev/ttyUSB10',
                     '/dev/ttyS0', '/dev/ttyS1', '/dev/ttyS2', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8',
                     'com9', 'com10', 'com11', 'com12', 'com13', 'com14', 'com15', 'com16', 'com17', 'com18', 'com19',
                     'com20', 'com21', 'com1', 'end']
-    for device in serlocations:
+    for device in ser_locations:
         try:
             ser = serial.Serial(
                 port=device,
@@ -28,6 +28,57 @@ def serial_connect():
             x = 0
     if device == 'end':
         print "No Device Found"
+        sys.exit()
+
+def save_emcy_data():
+    # CSV and Dropbox part
+    file_path = "/home/circontrol/loggerBBB/data/"
+    file_name = "logger_BBB_" + time.strftime("%Y%m%d_%H%M%S", time.gmtime()) + ".csv"
+    dbx_path = "/Datalogger"
+
+    with open(file_path + file_name, 'wb') as csvfile:
+        spam_writer = csv.writer(csvfile, delimiter=';')
+        spam_writer.writerow(["Data taken on", time.strftime("%a - %d %b %Y %H:%M:%S", time.gmtime())])
+        spam_writer.writerow(["By the Beagle Black Box"])
+        spam_writer.writerow([keyMsg])
+        spam_writer.writerow("\n")
+        # Extract rows
+        for x in xrange(minLengthOfVectors):
+            row = [vectors[x] for vectors in listOfVectors]
+            spam_writer.writerow(row)
+        print "Data saved in the device"
+
+    with open(file_path + file_name, 'rb') as f:
+        data_file = f.read()
+        print "Trying to push your file in the cloud..."
+
+    with open("passcode.txt", 'r') as code:
+        pwd = code.readline()
+        valid_pwd = pwd.find('\n')
+        pwd = pwd[:valid_pwd]
+
+    dbx = dropbox.Dropbox(pwd)
+
+    try:
+        dbx_path += "/" + file_name
+        dbx.files_upload(data_file, dbx_path)
+        print 'Uploaded in: ', dbx_path
+    except dropbox.exceptions.ApiError as err:
+        print 'That was too much, check you password file or the internet connection. API error:', err
+
+def parse_received_data():
+    list_of_vectors = []
+    min_length_of_vectors = 1000000000
+    for data in jsonData:
+        temp_vector = []
+        temp_vector.append(data['Var'])
+        for values in data['Values']:
+            temp_vector.append(values)
+        list_of_vectors.append(temp_vector)
+        if len(temp_vector) < min_length_of_vectors:
+            min_length_of_vectors = len(temp_vector)
+    return min_length_of_vectors,list_of_vectors
+
 
 # Connect!
 ser = serial_connect()
@@ -52,75 +103,21 @@ if ser:
             if timeSinceLastMessage > 1.0:
                 print "Some frames received, processing..."
                 receivingData = 0
-                print dspData
+
                 try:
                     dspDataParsed = json.loads(dspData)
-                    print "Data processed succesfully, trying to save it"
-                    break
+                    keyMsg = dspDataParsed.keys()[0]
+                    if "Emergency Broadcasting" in keyMsg:
+                        print "Is an emergency broadcast"
+                        jsonData = dspDataParsed[keyMsg]
+                    else:
+                        print keyMsg
+
+                    minLengthOfVectors,listOfVectors = parse_received_data()
+                    save_emcy_data()
+
                 except ValueError:
                     print "Sorry, there was some noise in the bus"
                     print "Waiting more messages"
                     dspData = ""
-else:
-    sys.exit()
 
-#####
-#Acquire data
-#dspData = '{"Emergency Broadcasting": [{ "Var": "vBus    ","Values": [4.51660156,4.51660156,4.96826171,4.51660156]}, {"Var": "cpu_tim0","Values": [0,4262,4253,4267]}]}' 
-   
-
-keyMsg =  dspDataParsed.keys()[0]
-if "Emergency Broadcasting" in keyMsg:
-    print "Is an emergency broadcast"
-else:
-    print keyMsg
-emergencyData = dspDataParsed[keyMsg]
-#else:
-#    sys.exit()
-
-#create a structure to save data
-listOfVectors = []
-minLengthOfVectors = 1000000000
-for data in emergencyData:
-    tempVector = []
-    tempVector.append(data['Var'])
-    for values in data['Values']:
-        tempVector.append(values)
-    listOfVectors.append(tempVector)
-    if len(tempVector) < minLengthOfVectors:
-        minLengthOfVectors = len(tempVector)
-
-# CSV and Dropbox part
-filePath = "/home/circontrol/loggerBBB/data/"
-fileName = "logger_BBB_" + time.strftime("%Y%m%d_%H%M%S", time.gmtime()) + ".csv"
-dbxPath = "/Datalogger"
-
-with open(filePath+fileName, 'wb') as csvfile:
-    spamwriter = csv.writer(csvfile, delimiter=';')
-    spamwriter.writerow(["Data taken on", time.strftime("%a - %d %b %Y %H:%M:%S", time.gmtime())])
-    spamwriter.writerow(["By the Beagle Black Box"])
-    spamwriter.writerow([keyMsg])
-    spamwriter.writerow("\n")
-    #Extract rows
-    for x in xrange(minLengthOfVectors):
-        row = [vectors[x] for vectors in listOfVectors]
-        spamwriter.writerow(row)
-    print "Data saved in the device"
-    
-with open(filePath+fileName, 'rb') as f:
-    dataFile = f.read()
-    print "Trying to push your file in the cloud..."
-
-with open("passcode.txt", 'r') as code:
-    pwd = code.readline()
-    validPwd = pwd.find('\n')
-    pwd = pwd[:validPwd]
-
-dbx = dropbox.Dropbox(pwd)
-
-try:
-    dbxPath += "/" + fileName
-    res = dbx.files_upload(dataFile, dbxPath)
-except dropbox.exceptions.ApiError as err:
-    print 'That was too much, check you password file or the internet connection. API error:', err
-print 'Uploaded in: ',dbxPath
