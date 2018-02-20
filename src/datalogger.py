@@ -50,7 +50,6 @@ def save_emcy_data():
 
     with open(file_path + file_name, 'rb') as f:
         data_file = f.read()
-        print "Trying to push your file in the cloud..."
 
     with open("passcode.txt", 'r') as code:
         pwd = code.readline()
@@ -62,7 +61,7 @@ def save_emcy_data():
     try:
         dbx_path += "/" + file_name
         dbx.files_upload(data_file, dbx_path)
-        print 'Uploaded in: ', dbx_path
+        print 'Uploaded in: ', dbx_path,'\n'
     except dropbox.exceptions.ApiError as err:
         print 'That was too much, check you password file or the internet connection. API error:', err
 
@@ -115,7 +114,7 @@ if ser:
 
                     minLengthOfVectors,listOfVectors = parse_received_data()
                     save_emcy_data()
-
+                    dspData = ""
                 except ValueError:
                     print "Sorry, there was some noise in the bus"
                     print "Waiting more messages"
