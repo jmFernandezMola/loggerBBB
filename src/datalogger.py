@@ -30,6 +30,30 @@ def serial_connect():
         print "No Device Found"
         sys.exit()
 
+def parse_emcy_data():
+    list_of_vectors = []
+    min_length_of_vectors = 1000000000
+    for data in jsonData:
+        temp_vector = []
+        temp_vector.append(data['Var'])
+        for values in data['Values']:
+            temp_vector.append(values)
+        list_of_vectors.append(temp_vector)
+        if len(temp_vector) < min_length_of_vectors:
+            min_length_of_vectors = len(temp_vector)
+    return min_length_of_vectors,list_of_vectors
+
+def add_flight_vector():
+    global flightVector
+
+    if len(flightVector) == 0:
+        flightVector.append([data['Var'] for data in jsonData])
+        flightVector[0].insert(0, 'time')
+        print "First flight vector reported, keep saving until emergency message"
+
+    flightVector.append([data['Values'][0] for data in jsonData])
+    flightVector[-1].insert(0, time.strftime("%d/%m/%Y %H:%M:%S", time.gmtime()))
+
 def save_emcy_data():
     # CSV and Dropbox part
     file_path = "/home/circontrol/loggerBBB/data/"
@@ -46,7 +70,7 @@ def save_emcy_data():
         for x in xrange(minLengthOfVectors):
             row = [vectors[x] for vectors in listOfVectors]
             spam_writer.writerow(row)
-        print "Data saved in the device"
+        print "Emergency data saved in the device"
 
     with open(file_path + file_name, 'rb') as f:
         data_file = f.read()
@@ -65,24 +89,49 @@ def save_emcy_data():
     except dropbox.exceptions.ApiError as err:
         print 'That was too much, check you password file or the internet connection. API error:', err
 
-def parse_received_data():
-    list_of_vectors = []
-    min_length_of_vectors = 1000000000
-    for data in jsonData:
-        temp_vector = []
-        temp_vector.append(data['Var'])
-        for values in data['Values']:
-            temp_vector.append(values)
-        list_of_vectors.append(temp_vector)
-        if len(temp_vector) < min_length_of_vectors:
-            min_length_of_vectors = len(temp_vector)
-    return min_length_of_vectors,list_of_vectors
+
+def save_flight_vector():
+    # CSV and Dropbox part
+    file_path = "/home/circontrol/loggerBBB/data/"
+    file_name = "flight_recorder_BBB_" + time.strftime("%Y%m%d_%H%M%S", time.gmtime()) + ".csv"
+    dbx_path = "/Datalogger"
+
+    with open(file_path + file_name, 'wb') as csvfile:
+        spam_writer = csv.writer(csvfile, delimiter=';')
+        spam_writer.writerow(["Data saved on", time.strftime("%a - %d %b %Y %H:%M:%S", time.gmtime())])
+        spam_writer.writerow(["By the Beagle Black Flight Recorder"])
+        spam_writer.writerow([keyMsg])
+        spam_writer.writerow("\n")
+        # Extract rows
+        for vectors in flightVector:
+            spamwriter.writerow(vectors)
+        print "Flight record saved in the device"
+        flightVector = []
+
+    with open(file_path + file_name, 'rb') as f:
+        data_file = f.read()
+
+    with open("passcode.txt", 'r') as code:
+        pwd = code.readline()
+        valid_pwd = pwd.find('\n')
+        pwd = pwd[:valid_pwd]
+
+    dbx = dropbox.Dropbox(pwd)
+
+    try:
+        dbx_path += "/" + file_name
+        dbx.files_upload(data_file, dbx_path)
+        print 'Uploaded in: ', dbx_path, '\n'
+    except dropbox.exceptions.ApiError as err:
+        print 'That was too much, check you password file or the internet connection. API error:', err
 
 
 # Connect!
 ser = serial_connect()
 receivingData = 0
 dspData = ""
+flightVector = []
+
 
 # If connection stablished...
 if ser:
@@ -95,28 +144,29 @@ if ser:
         if ser.inWaiting() > 0:
             dspData += ser.read(ser.inWaiting())
             t1 = time.time()
-            if receivingData == 0: print "I'm receiving something"
             receivingData = 1
         if dspData.__len__() > 0:
             timeSinceLastMessage = time.time() - t1
-            if timeSinceLastMessage > 1.0:
-                print "Some frames received, processing..."
+            if timeSinceLastMessage > 0.5:
                 receivingData = 0
-
                 try:
                     dspDataParsed = json.loads(dspData)
                     keyMsg = dspDataParsed.keys()[0]
+                    jsonData = dspDataParsed[keyMsg]
                     if "Emergency Broadcasting" in keyMsg:
-                        print "Is an emergency broadcast"
-                        jsonData = dspDataParsed[keyMsg]
+                        print "There is an emergency broadcast"
+                        minLengthOfVectors, listOfVectors = parse_emcy_data()
+                        save_emcy_data()
+                        dspData = ""
+                        if len(flightVector) > 0: save_flight_vector()
+                    elif "Flight" in keyMsg:
+                        add_flight_vector()
                     else:
                         print keyMsg
 
-                    minLengthOfVectors,listOfVectors = parse_received_data()
-                    save_emcy_data()
-                    dspData = ""
+
                 except ValueError:
-                    print "Sorry, there was some noise in the bus"
+                    print "There was some noise in the bus"
                     print "Waiting more messages"
                     dspData = ""
 
