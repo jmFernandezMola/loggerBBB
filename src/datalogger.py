@@ -6,6 +6,7 @@ import dropbox # write: sudo pip install dropbox
 import sys
 
 
+
 def serial_connect():
     ser_locations = ['/dev/ttyUSB0', '/dev/ttyACM', '/dev/ttyACM0', '/dev/ttyACM1', '/dev/ttyACM2', '/dev/ttyACM3',
                     '/dev/ttyACM4', '/dev/ttyACM5', '/dev/ttyUSB1', '/dev/ttyUSB2', '/dev/ttyUSB3', '/dev/ttyUSB4',
@@ -104,9 +105,8 @@ def save_flight_vector():
         spam_writer.writerow("\n")
         # Extract rows
         for vectors in flightVector:
-            spamwriter.writerow(vectors)
+            spam_writer.writerow(vectors)
         print "Flight record saved in the device"
-        flightVector = []
 
     with open(file_path + file_name, 'rb') as f:
         data_file = f.read()
@@ -149,6 +149,7 @@ if ser:
             timeSinceLastMessage = time.time() - t1
             if timeSinceLastMessage > 0.5:
                 receivingData = 0
+#                print dspData
                 try:
                     dspDataParsed = json.loads(dspData)
                     keyMsg = dspDataParsed.keys()[0]
@@ -159,8 +160,11 @@ if ser:
                         save_emcy_data()
                         dspData = ""
                         if len(flightVector) > 0: save_flight_vector()
+                        flightVector = []
                     elif "Flight" in keyMsg:
                         add_flight_vector()
+                        dspData = ""
+#                        print flightVector
                     else:
                         print keyMsg
 
